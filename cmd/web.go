@@ -132,8 +132,9 @@ func webCmd() *cobra.Command {
 				}
 
 				execCmd := exec.Command(exePath, cmdArgs...)
-				// 强制输出纯文本，无视交互等待
-				execCmd.Args = append(execCmd.Args, "--format", "text", "--non-interactive")
+				// [修复] 强制输出纯文本，并自动提供一个默认的钥匙串加密密码 "--keychain-passphrase"
+				// 这样在后台无交互模式下，程序也能顺利把你的苹果登录凭证安全地保存在本地了。
+				execCmd.Args = append(execCmd.Args, "--format", "text", "--non-interactive", "--keychain-passphrase", "web-passphrase-123")
 
 				out, err := execCmd.CombinedOutput()
 				if err != nil {
