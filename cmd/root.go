@@ -52,6 +52,10 @@ func rootCmd() *cobra.Command {
 	cmd.AddCommand(ListVersionsCmd())
 	cmd.AddCommand(getVersionMetadataCmd())
 
+	// [新增] 注册图形化 Web 面板子命令
+	// 用户在终端输入 ipatool web 即可启动可视化界面
+	cmd.AddCommand(webCmd())
+
 	return cmd
 }
 
