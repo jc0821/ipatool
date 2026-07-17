@@ -75,7 +75,6 @@ const webHTML = `
         function logOut(msg) { document.getElementById('output').innerText = msg; }
         function appendLog(msg) { document.getElementById('output').innerText += msg; }
 
-        // 解析 Go 后端返回的 JSON 日志行
         function extractJSON(text) {
             let res = {};
             let lines = text.split('\n');
@@ -86,7 +85,6 @@ const webHTML = `
             return res;
         }
 
-        // --- 核心网络请求封装 ---
         async function runBackend(argsArray) {
             const response = await fetch("/run", { 
                 method: "POST", 
@@ -94,11 +92,10 @@ const webHTML = `
                 body: JSON.stringify(argsArray) 
             });
             let text = await response.text();
-            text = text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, ''); // 清理颜色乱码
+            text = text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, ''); 
             return text;
         }
 
-        // --- 第1步：登录逻辑 ---
         async function login() {
             logOut("【登录中，请耐心等待】...\n----------------------------------------\n");
             let args = ['auth', 'login', '--email', v('email'), '--password', v('password')];
@@ -107,12 +104,11 @@ const webHTML = `
             let text = await runBackend(args);
             appendLog(text);
             
-            if (text.includes("2FA code is required") || text.includes("auth-code")) {
+            if (text.indexOf("2FA code is required") !== -1 || text.indexOf("auth-code") !== -1) {
                 alert("⚠️ 触发双重认证！\n请查看手机验证码，填入第一个板块的第三个输入框，然后【再次点击登录】！");
             }
         }
 
-        // --- 第2步：搜索与可视化 ---
         async function searchApp() {
             logOut("【搜索中，正在联系 App Store】...\n");
             let args = ['search', v('keyword'), '--limit', '3', '--format', 'json'];
@@ -122,13 +118,12 @@ const webHTML = `
             if (data.apps && data.apps.length > 0) {
                 logOut("搜索成功！请在下方选择你的目标 App。\n\n" + text);
                 let html = '<h4>搜索结果 (自动排版)：</h4>';
-                data.apps.forEach(app => {
-                    html += `
-                    <div class="card">
-                        <strong style="font-size:18px;">${app.name}</strong> <span style="color:#666;">(最新版本: ${app.version})</span><br>
-                        <span style="font-size:13px; color:#e0245e; font-weight:bold;">包名 (Bundle ID): ${app.bundleID}</span><br>
-                        <button style="margin-top:10px; width:auto; padding:8px 15px; font-size:14px;" onclick="document.getElementById('bundleId').value='${app.bundleID}'; alert('包名已自动填入第3步！')">👇 选定此 App</button>
-                    </div>`;
+                data.apps.forEach(function(app) {
+                    html += '<div class="card">' +
+                            '<strong style="font-size:18px;">' + app.name + '</strong> <span style="color:#666;">(最新版本: ' + app.version + ')</span><br>' +
+                            '<span style="font-size:13px; color:#e0245e; font-weight:bold;">包名 (Bundle ID): ' + app.bundleID + '</span><br>' +
+                            '<button style="margin-top:10px; width:auto; padding:8px 15px; font-size:14px;" onclick="document.getElementById(\'bundleId\').value=\'' + app.bundleID + '\'; alert(\'包名已自动填入第3步！\')">👇 选定此 App</button>' +
+                            '</div>';
                 });
                 document.getElementById('searchResults').innerHTML = html;
             } else {
@@ -136,7 +131,6 @@ const webHTML = `
             }
         }
 
-        // --- 第3步：拉取历史版本与解析 ---
         async function fetchVersions() {
             let bundleId = v('bundleId');
             if (!bundleId) return alert("请先填写或搜索选定 Bundle ID");
@@ -152,16 +146,13 @@ const webHTML = `
                 container.style.display = 'block';
                 container.innerHTML = '';
                 
-                // 苹果的ID通常从小到大，翻转数组让最新版在最上面
                 let ids = data.externalVersionIdentifiers.reverse();
-                ids.forEach((id, index) => {
+                ids.forEach(function(id) {
                     let div = document.createElement('div');
                     div.style.padding = '8px';
                     div.style.borderBottom = '1px dashed #eee';
-                    div.innerHTML = `
-                        <span style="display:inline-block; width:150px; color:#555;">内部 ID: ${id}</span>
-                        <button style="width:auto; padding: 6px 15px; font-size:13px; background:#6c757d;" onclick="resolveVersion('${bundleId}', '${id}', this)">🔍 点击解析这是几号版本</button>
-                    `;
+                    div.innerHTML = '<span style="display:inline-block; width:150px; color:#555;">内部 ID: ' + id + '</span>' +
+                                    '<button style="width:auto; padding: 6px 15px; font-size:13px; background:#6c757d;" onclick="resolveVersion(\'' + bundleId + '\', \'' + id + '\', this)">🔍 点击解析这是几号版本</button>';
                     container.appendChild(div);
                 });
             } else {
@@ -169,7 +160,6 @@ const webHTML = `
             }
         }
 
-        // --- 点击解析具体版本的按钮逻辑 ---
         async function resolveVersion(bundleId, versionId, btn) {
             btn.innerText = "⏳ 正在从云端读取 Info.plist...";
             btn.disabled = true;
@@ -179,21 +169,17 @@ const webHTML = `
             let data = extractJSON(text);
             
             if (data.displayVersion) {
-                // 巧妙替换该行的内容为结果
                 let dateStr = new Date(data.releaseDate).toLocaleDateString();
-                btn.parentElement.innerHTML = `
-                    <span style="display:inline-block; width:150px; color:#555;">内部 ID: ${versionId}</span>
-                    <span style="display:inline-block; width:220px; color: #d93025; font-weight:bold; font-size:18px;">版本号: ${data.displayVersion}</span>
-                    <span style="display:inline-block; width:150px; font-size:12px; color:#888;">(${dateStr})</span>
-                    <button style="width:auto; padding: 6px 15px; font-size:13px; background:#28a745;" onclick="document.getElementById('versionId').value='${versionId}'; alert('ID: ${versionId} (对应版本 ${data.displayVersion}) 已自动填入下载框！请直接点击第4步的开始下载！')">🎯 选定此版本下载</button>
-                `;
+                btn.parentElement.innerHTML = '<span style="display:inline-block; width:150px; color:#555;">内部 ID: ' + versionId + '</span>' +
+                                              '<span style="display:inline-block; width:220px; color: #d93025; font-weight:bold; font-size:18px;">版本号: ' + data.displayVersion + '</span>' +
+                                              '<span style="display:inline-block; width:150px; font-size:12px; color:#888;">(' + dateStr + ')</span>' +
+                                              '<button style="width:auto; padding: 6px 15px; font-size:13px; background:#28a745;" onclick="document.getElementById(\'versionId\').value=\'' + versionId + '\'; alert(\'ID: ' + versionId + ' (对应版本 ' + data.displayVersion + ') 已自动填入下载框！请直接点击第4步的开始下载！\')">🎯 选定此版本下载</button>';
             } else {
                 btn.innerText = "❌ 解析失败，苹果未返回";
                 btn.disabled = false;
             }
         }
 
-        // --- 第4步：下载逻辑 ---
         async function downloadApp() {
             logOut("【正在请求下载授权并建立下载链路，请耐心等待进度条完成】...\n----------------------------------------\n");
             let args = ['download', '--purchase', '-b', v('bundleId'), '--external-version-id', v('versionId')];
@@ -206,7 +192,6 @@ const webHTML = `
 </html>
 `
 
-// webCmd 负责构建一个新的 "web" 终端子命令，启动本地可视化网页
 func webCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "web",
@@ -226,7 +211,6 @@ func webCmd() *cobra.Command {
 					return
 				}
 
-				// 检测前端是否传了指定格式，没有则默认 text
 				hasFormat := false
 				for _, a := range cmdArgs {
 					if a == "--format" { hasFormat = true; break }
@@ -240,10 +224,8 @@ func webCmd() *cobra.Command {
 					execCmd.Args = append(execCmd.Args, "--format", "text")
 				}
 				
-				// 附加无交互密码参数，防止凭证写入本地失败
 				execCmd.Args = append(execCmd.Args, "--non-interactive", "--keychain-passphrase", "web-passphrase-123")
 
-				// 执行并捕获输出
 				out, _ := execCmd.CombinedOutput()
 				w.Write(out)
 			})
