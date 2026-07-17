@@ -96,6 +96,12 @@ const webHTML = `
                 // [新增] 剔除终端产生的 ANSI 颜色控制字符，让日志更清爽
                 text = text.replace(/\x1B\[[0-9;]*[a-zA-Z]/g, '');
                 out.innerText += text;
+
+                // [新增] 友好的 2FA 双重认证中文弹窗提示
+                // 当后台日志反馈需要 2FA 验证码时，直接用网页弹窗强提醒你，确保你不会错过！
+                if (text.includes("2FA code is required") || text.includes("auth-code")) {
+                    alert("⚠️ 苹果安全机制触发：要求双重认证！\n\n请查看你的手机或平板，将屏幕上弹出的 6 位数验证码，填入面板上的第三个输入框，然后【再次点击登录】！");
+                }
             } catch (e) {
                 out.innerText += "\n[网络请求失败]：" + e;
             }
