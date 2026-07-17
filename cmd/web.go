@@ -61,8 +61,9 @@ const webHTML = `
         <div class="section">
             <h3>4. 一键下载</h3>
             <input type="text" id="versionId" placeholder="目标版本的数字 ID (请在第 3 步列表中点击选定，系统会自动填入此框)">
-            <input type="text" id="savePath" placeholder="保存位置和文件名 (例如: D:\RunwayML_历史版.ipa)">
-            <button style="background: #28a745;" onclick="downloadApp()">🚀 获取授权并开始下载！</button>
+            <!-- [修改] 优化占位符文案，告诉用户可以留空 -->
+            <input type="text" id="savePath" placeholder="保存路径 (可选，留空则自动保存在当前文件夹并自动命名为.ipa)">
+            <button id="dlBtn" style="background: #0071e3;" onclick="downloadApp()">🚀 获取授权并开始下载！</button>
         </div>
 
         <h3>运行日志：</h3>
@@ -180,11 +181,34 @@ const webHTML = `
         }
 
         async function downloadApp() {
-            logOut("【正在请求下载授权并建立下载链路，请耐心等待进度条完成】...\n----------------------------------------\n");
+            let btn = document.getElementById('dlBtn');
+            let oldText = btn.innerText;
+            // [新增] 更改按钮状态，给用户明确的进度等待感
+            btn.innerText = "⏳ 正在疯狂下载中 (约需1~3分钟)，请勿关闭网页...";
+            btn.style.background = "#ff9800";
+            btn.disabled = true;
+
+            logOut("【下载任务已提交】苹果服务器正在下发数据，后台全力下载中...\n(请喝口水耐心等待，完成后底部会弹出成功日志。保存路径留空会自动存放在程序同目录)\n----------------------------------------\n");
+            
             let args = ['download', '--purchase', '-b', v('bundleId'), '--external-version-id', v('versionId')];
-            if (v('savePath')) args.push('-o', v('savePath'));
+            
+            // [新增] 只有用户真正填写了路径才追加 -o 参数，否则留空让程序自动命名 ipa
+            let sp = v('savePath');
+            if (sp && sp.trim() !== '') {
+                args.push('-o', sp.trim());
+            }
+
             let text = await runBackend(args);
             appendLog(text);
+
+            // [新增] 恢复按钮状态
+            btn.innerText = "✅ 下载完成！(请查看下方日志确认)";
+            btn.style.background = "#28a745";
+            setTimeout(function() { 
+                btn.innerText = oldText; 
+                btn.style.background = "#0071e3";
+                btn.disabled = false; 
+            }, 5000);
         }
     </script>
 </body>
