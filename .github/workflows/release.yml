@@ -40,7 +40,7 @@ jobs:
           GOOS: windows
           GOARCH: arm64
           VERSION: ${{ needs.get_version.outputs.version }}
-      - run: go build -ldflags="-X github.com/majd/ipatool/v2/cmd.version=$VERSION" -o ipatool-$VERSION-windows-amd64.exe
+      - run: go build -ldflags="-H windowsgui -X github.com/majd/ipatool/v2/cmd.version=$VERSION" -o ipatool-$VERSION-windows-amd64.exe
         env:
           GOOS: windows
           GOARCH: amd64
