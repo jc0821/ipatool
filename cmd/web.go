@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"runtime"
 
 	"github.com/spf13/cobra"
 )
@@ -72,6 +73,11 @@ const webHTML = `
 
     <script>
         function v(id) { return document.getElementById(id).value; }
+        // [新增] 监听网页关闭事件，发送请求给后台让其静默退出
+        window.addEventListener('beforeunload', function (e) {
+            navigator.sendBeacon('/exit');
+        });
+
         function logOut(msg) { document.getElementById('output').innerText = msg; }
         function appendLog(msg) { document.getElementById('output').innerText += msg; }
 
@@ -122,7 +128,7 @@ const webHTML = `
                     html += '<div class="card">' +
                             '<strong style="font-size:18px;">' + app.name + '</strong> <span style="color:#666;">(最新版本: ' + app.version + ')</span><br>' +
                             '<span style="font-size:13px; color:#e0245e; font-weight:bold;">包名 (Bundle ID): ' + app.bundleID + '</span><br>' +
-                            '<button style="margin-top:10px; width:auto; padding:8px 15px; font-size:14px;" onclick="document.getElementById(\'bundleId\').value=\'' + app.bundleID + '\'; alert(\'包名已自动填入第3步！\')">👇 选定此 App</button>' +
+                            '<button style="margin-top:10px; width:auto; padding:8px 15px; font-size:14px;" onclick="window.currentAppName=\'' + app.name.replace(/['"]/g, '') + '\'; document.getElementById(\'bundleId\').value=\'' + app.bundleID + '\'; alert(\'包名已自动填入第3步！\')">👇 选定此 App</button>' +
                             '</div>';
                 });
                 document.getElementById('searchResults').innerHTML = html;
@@ -170,10 +176,14 @@ const webHTML = `
             
             if (data.displayVersion) {
                 let dateStr = new Date(data.releaseDate).toLocaleDateString();
+                // [新增] 自动拼接 "软件名_版本号.ipa" 并去除不能做文件名的特殊符号
+                let cleanAppName = (window.currentAppName || 'App').replace(/[\/\\:*?"<>|]/g, '').replace(/ /g, '_');
+                let defaultSavePath = cleanAppName + "_" + data.displayVersion + ".ipa";
+
                 btn.parentElement.innerHTML = '<span style="display:inline-block; width:150px; color:#555;">内部 ID: ' + versionId + '</span>' +
                                               '<span style="display:inline-block; width:220px; color: #d93025; font-weight:bold; font-size:18px;">版本号: ' + data.displayVersion + '</span>' +
                                               '<span style="display:inline-block; width:150px; font-size:12px; color:#888;">(' + dateStr + ')</span>' +
-                                              '<button style="width:auto; padding: 6px 15px; font-size:13px; background:#28a745;" onclick="document.getElementById(\'versionId\').value=\'' + versionId + '\'; alert(\'ID: ' + versionId + ' (对应版本 ' + data.displayVersion + ') 已自动填入下载框！请直接点击第4步的开始下载！\')">🎯 选定此版本下载</button>';
+                                              '<button style="width:auto; padding: 6px 15px; font-size:13px; background:#28a745;" onclick="document.getElementById(\'versionId\').value=\'' + versionId + '\'; document.getElementById(\'savePath\').value=\'' + defaultSavePath + '\'; alert(\'ID和【自动生成的文件名】已填入下载框！请直接点击第4步开始下载！\')">🎯 选定此版本下载</button>';
             } else {
                 btn.innerText = "❌ 解析失败，苹果未返回";
                 btn.disabled = false;
@@ -225,6 +235,11 @@ func webCmd() *cobra.Command {
 				_, _ = w.Write([]byte(webHTML))
 			})
 
+			// [新增] 接收到前端网页关闭的信号，立刻终结后台隐形进程
+			http.HandleFunc("/exit", func(w http.ResponseWriter, r *http.Request) {
+				os.Exit(0)
+			})
+
 			http.HandleFunc("/run", func(w http.ResponseWriter, r *http.Request) {
 				if r.Method != http.MethodPost { return }
 				
@@ -253,7 +268,16 @@ func webCmd() *cobra.Command {
 				w.Write(out)
 			})
 
-			dependencies.Logger.Log().Msg("🎉 可视化面板已启动！请打开浏览器访问: http://127.0.0.1:8080")
+			dependencies.Logger.Log().Msg("🎉 可视化面板已启动！")
+			
+			// [新增] 启动服务的同时，调用 Windows 系统命令自动弹开浏览器
+			go func() {
+				url := "http://127.0.0.1:8080"
+				if runtime.GOOS == "windows" {
+					exec.Command("cmd", "/c", "start", url).Start()
+				}
+			}()
+
 			return http.ListenAndServe(":8080", nil)
 		},
 	}
